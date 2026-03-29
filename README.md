@@ -46,32 +46,50 @@
             padding: 12px 30px;
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
+            align-items: center;
             flex-wrap: wrap;
             gap: 15px;
             color: white;
             font-weight: 500;
         }
+        .timer-info {
+            display: flex;
+            align-items: baseline;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
         .timer {
             font-family: 'Courier New', monospace;
-            font-size: 2rem;
+            font-size: 1.8rem;
             font-weight: 700;
             background: #00000040;
-            padding: 4px 20px;
+            padding: 4px 18px;
             border-radius: 60px;
-            transition: 0.2s;
-        }
-        .timer.warning {
-            background: #c2410c;
-            box-shadow: 0 0 0 2px #ffb347;
-            color: white;
         }
         .q-counter {
             background: #f4b942;
             color: #0b2b3f;
-            padding: 6px 24px;
+            padding: 6px 20px;
             border-radius: 40px;
             font-weight: bold;
+        }
+        .timer-bar-container {
+            flex: 1;
+            min-width: 150px;
+            background-color: #2c5a7a;
+            border-radius: 30px;
+            height: 12px;
+            overflow: hidden;
+        }
+        .timer-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #2ecc71;
+            transition: width 1s linear, background-color 0.3s;
+            border-radius: 30px;
+        }
+        .timer-bar.warning {
+            background-color: #e74c3c;
         }
         .quiz-area {
             padding: 28px 32px 20px;
@@ -200,6 +218,7 @@
         @media (max-width: 650px) {
             .question { font-size: 1.3rem; }
             .quiz-area { padding: 20px; }
+            .timer-panel { flex-direction: column; align-items: stretch; }
         }
     </style>
 </head>
@@ -207,12 +226,17 @@
 <div class="exam-wrapper" id="examApp">
     <div class="ug-banner">
         <h1>GNURS 303 · FINAL ASSESSMENT</h1>
-        <p>UNIVERSITY OF GHANA | EYE, EAR, NOSE, THROAT & DENTAL NURSING | 120 MCQs | TIME: 60 MINUTES</p>
+        <p>UNIVERSITY OF GHANA | EYE, EAR, NOSE, THROAT & DENTAL NURSING | 120 MCQs | TIME: 50 MINUTES</p>
     </div>
     <div class="timer-panel">
-        <span>⏱️ TIME REMAINING</span>
-        <span class="timer" id="timerDisplay">60:00</span>
-        <span class="q-counter" id="counterSpan">Q1 / 120</span>
+        <div class="timer-info">
+            <span>⏱️ REMAINING</span>
+            <span class="timer" id="timerDisplay">50:00</span>
+            <span class="q-counter" id="counterSpan">Q1 / 120</span>
+        </div>
+        <div class="timer-bar-container">
+            <div class="timer-bar" id="timerBar"></div>
+        </div>
     </div>
     <div class="quiz-area" id="quizArea">
         <!-- dynamic content -->
@@ -223,146 +247,161 @@
 </div>
 
 <script>
-    // ---------- 120 BALANCED MCQs (non-obvious length, all topics) ----------
-    // Base 111 questions + 9 new = 120. Verified array length 120.
-    const QUESTIONS = [
-        { text: "Which of the following best describes early gingivitis?", options: ["Painless bleeding with probing and marginal erythema", "Deep periodontal pockets >5mm", "Spontaneous exudate and tooth mobility", "Recession with exposed cementum"], correct: 0 },
-        { text: "The predominant bacterial species in supragingival plaque associated with gingivitis is:", options: ["Porphyromonas gingivalis", "Streptococcus mutans and Actinomyces", "Treponema denticola", "Candida albicans"], correct: 1 },
-        { text: "Which systemic condition most exacerbates inflammatory response in periodontitis?", options: ["Hypertension", "Diabetes mellitus (poor glycemic control)", "Asthma", "Osteoporosis"], correct: 1 },
-        { text: "The hallmark that distinguishes periodontitis from gingivitis is:", options: ["Halitosis", "Irreversible loss of clinical attachment and alveolar bone", "Bleeding on brushing", "Gingival hyperplasia"], correct: 1 },
-        { text: "Smoking contributes to periodontitis mainly by:", options: ["Increasing saliva viscosity", "Impairing neutrophil function and reducing gingival blood flow", "Raising oral pH", "Promoting enamel demineralization"], correct: 1 },
-        { text: "What is the primary goal of root planing?", options: ["Remove supragingival calculus only", "Smooth root surfaces to eliminate bacterial niches and promote reattachment", "Reshape the gingival margin", "Remove the periodontal ligament"], correct: 1 },
-        { text: "Aggressive periodontitis (localized) classically involves:", options: ["All teeth equally", "First molars and incisors with minimal plaque", "Only primary dentition", "Mandibular premolars exclusively"], correct: 1 },
-        { text: "Which microorganism is strongly associated with refractory periodontitis?", options: ["Aggregatibacter actinomycetemcomitans", "Lactobacillus casei", "Candida tropicalis", "Streptococcus salivarius"], correct: 0 },
-        { text: "Odontogenic infections most often arise from:", options: ["Dental pulp necrosis and subsequent spread to periapical tissues", "Nasal mucosa", "Salivary duct obstruction", "Lymphoid tissue of Waldeyer's ring"], correct: 0 },
-        { text: "First-line empirical antibiotic for odontogenic infection in a non-allergic adult is:", options: ["Amoxicillin or amoxicillin-clavulanate", "Ciprofloxacin", "Azithromycin", "Doxycycline"], correct: 0 },
-        { text: "Hospitalization for odontogenic infection is necessary when patient shows:", options: ["Toothache without swelling", "Fever, dysphagia, trismus, or spreading cellulitis (Ludwig's angina)", "Localized fluctuant swelling <1cm", "Periapical radiolucency asymptomatic"], correct: 1 },
-        { text: "A 'favorable' mandibular fracture means:", options: ["Muscle forces pull fragments together minimizing displacement", "Fracture is greenstick", "There is comminution at angle", "No teeth in fracture line"], correct: 0 },
-        { text: "CSF rhinorrhea following facial trauma suggests:", options: ["Isolated nasal bone fracture", "Anterior skull base fracture (cribriform plate or sphenoid)", "Maxillary sinusitis", "Nasopharyngeal tumor"], correct: 1 },
-        { text: "Maxillomandibular fixation (MMF) is used to:", options: ["Immobilize cervical spine", "Stabilize jaw fractures by intermaxillary wiring", "Reduce zygomatic arch", "Treat temporomandibular joint ankylosis"], correct: 1 },
-        { text: "The most common site for anterior epistaxis (Kiesselbach's plexus) receives blood from:", options: ["Sphenopalatine artery alone", "Anastomosis of septal branches of anterior ethmoidal, sphenopalatine, greater palatine, and superior labial arteries", "Posterior ethmoidal only", "Facial artery only"], correct: 1 },
-        { text: "Immediate first aid for active anterior nosebleed in a stable patient is:", options: ["Nasal packing with ribbon gauze", "Pinching the cartilaginous nasal tip for 10 minutes while leaning forward", "Lying flat and applying ice to forehead", "Oral tranexamic acid only"], correct: 1 },
-        { text: "Which medication history most increases epistaxis risk by inhibiting platelet aggregation?", options: ["Paracetamol", "Ibuprofen or aspirin", "Amoxicillin", "Omeprazole"], correct: 1 },
-        { text: "Nasal-cardiac reflex (sudden bradycardia) after nasal packing requires:", options: ["Immediate pack removal and observation", "Administration of atropine and continue packing", "Increase pack pressure", "Patient reassurance only"], correct: 0 },
-        { text: "Allergic rhinitis typical clinical picture includes:", options: ["Purulent nasal discharge and facial pain", "Sneezing, clear rhinorrhea, nasal itching, and conjunctival injection", "Unilateral foul-smelling discharge", "Crusting and septal perforation"], correct: 1 },
-        { text: "Rhinitis medicamentosa is caused by:", options: ["Prolonged use of topical nasal decongestants (rebound vasodilation)", "Angiotensin-converting enzyme inhibitors", "Cigarette smoke", "Cold weather"], correct: 0 },
-        { text: "According to Cottle, an 'impacted' deviated nasal septum means:", options: ["Mild deviation without obstruction", "Septal spur contacts lateral wall with no space even after vasoconstriction", "Simple C-shaped curvature", "Complete septal perforation"], correct: 1 },
-        { text: "Septoplasty is indicated primarily for:", options: ["Recurrent epistaxis alone", "Nasal obstruction due to septal deviation refractory to medical therapy", "Nasal polyps", "Chronic rhinosinusitis without deviation"], correct: 1 },
-        { text: "Post-septoplasty discharge instruction includes:", options: ["Forceful nose blowing to clear clots", "Avoid nose blowing, heavy lifting, and straining for several weeks", "Immediate return to contact sports", "No restriction on NSAIDs"], correct: 1 },
-        { text: "Ethmoidal polyps are typically:", options: ["Solitary, unilateral, more common in children", "Multiple, bilateral, more common in adults with chronic inflammation", "Originating from maxillary antrum only", "Malignant in most cases"], correct: 1 },
-        { text: "First-line medical therapy for nasal polyps is:", options: ["Oral corticosteroids", "Intranasal corticosteroid sprays", "Antihistamines alone", "Systemic antifungals"], correct: 1 },
-        { text: "Meniere's disease classic triad includes:", options: ["Otalgia, fever, purulent otorrhea", "Episodic vertigo, fluctuating sensorineural hearing loss, tinnitus, aural fullness", "Facial paralysis and dry eye", "Progressive bilateral deafness"], correct: 1 },
-        { text: "The main pathological finding in Meniere's disease is:", options: ["Otosclerosis", "Endolymphatic hydrops (distension of endolymphatic spaces)", "Mastoid air cell effusion", "Perilymph fistula"], correct: 1 },
-        { text: "Dietary modification for Meniere's disease includes:", options: ["Low sodium diet and avoidance of caffeine, alcohol, and nicotine", "High sodium and high fluid intake", "Ketogenic diet", "Increased dairy products"], correct: 0 },
-        { text: "Intratympanic gentamicin for Meniere's disease is used to:", options: ["Improve hearing threshold", "Chemically ablate vestibular function to control vertigo", "Reduce endolymph production", "Cure tinnitus"], correct: 1 },
-        { text: "Which maneuver is both diagnostic and therapeutic for posterior canal BPPV?", options: ["Epley maneuver", "Head impulse test", "Dix-Hallpike only", "Valsalva"], correct: 0 },
-        { text: "Acute coalescent mastoiditis is a complication of:", options: ["Otitis externa", "Acute otitis media with erosion of mastoid septa", "Cerumen impaction", "Cholesteatoma without infection"], correct: 1 },
-        { text: "Classic clinical sign of mastoiditis is:", options: ["Postauricular swelling, erythema, tenderness, and protrusion of auricle", "Preauricular pit", "Facial paralysis without ear findings", "Tympanic membrane retraction"], correct: 0 },
-        { text: "Imaging of choice to confirm coalescent mastoiditis is:", options: ["Skull X-ray", "High-resolution CT of temporal bone without contrast", "MRI brain", "Ultrasound of mastoid"], correct: 1 },
-        { text: "Indication for cerumen removal includes:", options: ["Routine cleaning at every visit", "Cerumen impaction causing hearing loss, pain, or obscuring tympanic membrane", "All patients over 60", "Presence of any earwax"], correct: 1 },
-        { text: "A safe and effective cerumenolytic agent is:", options: ["Carbamide peroxide or hydrogen peroxide", "Liquid nitrogen", "Acetic acid 50%", "Ethanol 70%"], correct: 0 },
-        { text: "Conductive hearing loss is characterized by:", options: ["Normal air conduction, absent bone conduction", "Impaired sound transmission through external/middle ear; bone conduction > air conduction on Rinne", "Cochlear nerve damage", "Retrocochlear lesion"], correct: 1 },
-        { text: "Presbycusis is a type of:", options: ["Conductive loss due to otosclerosis", "Sensorineural loss due to age-related cochlear degeneration", "Mixed loss from chronic otitis media", "Central auditory processing disorder"], correct: 1 },
-        { text: "Weber test lateralizes to the affected ear in:", options: ["Sensorineural loss on same side", "Conductive hearing loss on same side (bone conduction better)", "Normal hearing", "Mixed loss with large air-bone gap"], correct: 1 },
-        { text: "Auricular hematoma requires urgent evacuation to prevent:", options: ["Perichondritis and cauliflower ear deformity", "Tympanic membrane rupture", "Cholesteatoma", "External otitis"], correct: 0 },
-        { text: "After traumatic tympanic membrane perforation, essential advice is:", options: ["Keep ear dry, avoid water, and no forceful nose blowing", "Instill antibiotic drops immediately", "Irrigate daily", "Use cotton swab to clean canal"], correct: 0 },
-        { text: "Viral conjunctivitis typical feature:", options: ["Purulent discharge with morning matting", "Watery discharge, tender preauricular lymph node, and bilateral involvement", "Severe itching and stringy discharge", "Subconjunctival hemorrhage only"], correct: 1 },
-        { text: "Bacterial conjunctivitis commonly presents with:", options: ["Serous discharge and follicles", "Mucopurulent discharge, crusting, and often bilateral", "Pseudomembrane and severe photophobia", "Periorbital edema without discharge"], correct: 1 },
-        { text: "Iridocyclitis (anterior uveitis) slit lamp finding includes:", options: ["Corneal arcus", "Cells and flare in anterior chamber", "Posterior subcapsular cataract", "Drusen"], correct: 1 },
-        { text: "First-line treatment for acute anterior uveitis includes:", options: ["Topical corticosteroids and cycloplegics (e.g., atropine or cyclopentolate)", "Antibiotic ointment", "Beta-blocker eye drops", "Lubrication only"], correct: 0 },
-        { text: "Age-related cataract results from:", options: ["Denaturation and aggregation of lens crystallins", "Increased aqueous production", "Corneal endothelial decompensation", "Vitreous hemorrhage"], correct: 0 },
-        { text: "Preoperative biometry for cataract surgery is essential to:", options: ["Calculate intraocular lens power", "Assess visual field", "Measure corneal thickness only", "Evaluate tear film"], correct: 0 },
-        { text: "Post-cataract surgery patient should avoid:", options: ["Bending head below waist and heavy lifting for 2 weeks", "Wearing sunglasses outdoors", "Using prescribed antibiotic drops", "Sleeping on non-operated side"], correct: 0 },
-        { text: "Open-angle glaucoma typical initial presentation:", options: ["Sudden painful red eye", "Asymptomatic, gradual peripheral vision loss", "Halos and nausea", "Flashes and floaters"], correct: 1 },
-        { text: "First-line medication class for open-angle glaucoma is:", options: ["Prostaglandin analogs (increase uveoscleral outflow)", "Oral carbonic anhydrase inhibitors only", "Miotics as initial", "Antivirals"], correct: 0 },
-        { text: "Acute angle-closure glaucoma emergency treatment includes:", options: ["Topical antibiotics and patching", "Laser peripheral iridotomy and IOP-lowering agents (topical beta-blocker, alpha agonist, etc.)", "Systemic antifungals", "Warm compresses"], correct: 1 },
-        { text: "Causative agent of trachoma is:", options: ["Chlamydia trachomatis serotypes A-C", "Neisseria gonorrhoeae", "Adenovirus type 8", "Haemophilus influenzae"], correct: 0 },
-        { text: "The WHO SAFE strategy for trachoma includes:", options: ["Surgery for trichiasis, Antibiotics, Facial cleanliness, Environmental improvement", "Steroids, Antivirals, Fluoride, Education", "Sclerotherapy, Analgesics, Fluids, Exercises", "Saline, Artificial tears, Fomites eradication"], correct: 0 },
-        { text: "Pterygium is a triangular fibrovascular overgrowth commonly located:", options: ["Nasal conjunctiva in interpalpebral zone", "Corneal center", "Upper tarsal conjunctiva", "Inferior fornix"], correct: 0 },
-        { text: "Main environmental risk factor for pterygium is:", options: ["Chronic UV light exposure and dry dusty climate", "Bacterial conjunctivitis", "High intraocular pressure", "Vitamin A deficiency"], correct: 0 },
-        { text: "Recurrence after pterygium excision is reduced by:", options: ["Conjunctival autograft or amniotic membrane graft", "Leaving bare sclera", "Topical corticosteroids alone", "Simple excision without graft"], correct: 0 },
-        { text: "Chalazion results from obstruction of:", options: ["Meibomian gland (lipogranuloma)", "Lacrimal punctum", "Sweat gland of eyelid", "Conjunctival goblet cell"], correct: 0 },
-        { text: "Initial conservative treatment for chalazion includes:", options: ["Incision and curettage", "Warm compresses and lid massage", "Oral antibiotics always", "Cryotherapy"], correct: 1 },
-        { text: "Open-globe injury requires:", options: ["Immediate pressure patch", "Rigid shield, avoid pressure, and emergent ophthalmic repair", "Irrigation with saline", "Topical anesthetic only"], correct: 1 },
-        { text: "Hyphema after blunt trauma management includes:", options: ["Bed rest with head elevation and protect from rebleeding", "Strenuous activity to clear blood", "Aspirin for pain", "Immediate surgery always"], correct: 0 },
-        { text: "Most common primary intraocular malignancy in children:", options: ["Retinoblastoma", "Choroidal melanoma", "Medulloepithelioma", "Lymphoma"], correct: 0 },
-        { text: "Retinitis pigmentosa initially affects:", options: ["Rod photoreceptors causing night blindness and peripheral field loss", "Macula only", "Corneal endothelium", "Lens capsule"], correct: 0 },
-        { text: "Leber hereditary optic neuropathy (LHON) shows:", options: ["Maternal inheritance, painless central vision loss in young males", "Autosomal dominant, childhood onset nystagmus", "X-linked, congenital cataract", "Mitochondrial, only females affected"], correct: 0 },
-        { text: "Acute tonsillitis most common cause:", options: ["Group A beta-hemolytic streptococci and viruses (adenovirus, EBV)", "Candida albicans", "Anaerobes only", "Mycoplasma pneumoniae"], correct: 0 },
-        { text: "Peritonsillar abscess (Quinsy) typical presentation:", options: ["Trismus, hot potato voice, unilateral swelling, uvula deviation", "Bilateral exudate without pain", "Postnasal drip and cough", "Isolated fever without throat findings"], correct: 0 },
-        { text: "Indication for tonsillectomy includes:", options: ["Recurrent tonsillitis (≥7 episodes/year) or peritonsillar abscess", "Single mild sore throat", "Asymptomatic tonsillar hypertrophy", "Halitosis alone"], correct: 0 },
-        { text: "Post-tonsillectomy priority nursing care:", options: ["Airway maintenance, bleeding observation, side-lying position", "Encourage gargling and hot liquids", "Solid food within 2 hours", "Apply warm neck compress"], correct: 0 },
-        { text: "Most common nasal foreign body in toddlers:", options: ["Beads, food particles, or toy pieces", "Hearing aid batteries", "Cotton fragments", "Insects"], correct: 0 },
-        { text: "Initial removal attempt for nasal foreign body in cooperative child:", options: ["Positive pressure (parental kiss) or gentle blowing", "Forceps blind extraction", "Immediate rigid endoscopy", "Nasal packing"], correct: 0 },
-        { text: "Insect in ear canal should be managed by:", options: ["Instilling lidocaine or alcohol to immobilize, then removal", "Forceful irrigation with hot water", "Using cotton swab to crush", "Waiting for spontaneous exit"], correct: 0 },
-        { text: "Tracheobronchial foreign body aspiration classic presentation:", options: ["Sudden choking, coughing, localized wheezing, asymmetric breath sounds", "Gradual dysphagia without respiratory symptoms", "Hoarseness only", "Cyanosis without cough"], correct: 0 },
-        { text: "Ludwig's angina (severe odontogenic infection) involves:", options: ["Bilateral submandibular, sublingual, submental spaces causing airway compromise", "Isolated buccal space abscess", "Parotid space infection", "Retropharyngeal abscess without floor of mouth involvement"], correct: 0 },
-        { text: "Le Fort II fracture pattern involves:", options: ["Pyramidal fracture through nasal bones, maxilla, and orbital rims", "Transverse through alveolar process only", "Separation of maxilla from skull base at nasofrontal suture", "Comminuted mandible"], correct: 0 },
-        { text: "Rinne test in conductive hearing loss shows:", options: ["Bone conduction > air conduction (negative Rinne)", "Air > bone (positive Rinne)", "Equal", "No response bilaterally"], correct: 0 },
-        { text: "Which of the following is NOT a risk factor for recurrent epistaxis?", options: ["Anticoagulant use", "Hypertension", "Regular saline nasal spray use", "Dry environmental conditions"], correct: 2 },
-        { text: "The 'classic triad' of retinitis pigmentosa on fundoscopy includes:", options: ["Bone spicule pigmentation, arteriolar narrowing, waxy optic disc pallor", "Cotton wool spots, flame hemorrhages, macular star", "Drusen, geographic atrophy, subretinal fluid", "Optic disc edema, venous engorgement, vitreous cells"], correct: 0 },
-        { text: "Gold standard for diagnosis of bacterial rhinosinusitis is:", options: ["Clinical criteria plus nasal endoscopy or CT if complicated", "Plain X-ray Waters view", "Routine blood culture", "Allergy testing"], correct: 0 },
-        { text: "Informed consent for septoplasty should mention possible complication:", options: ["Septal perforation, change in nasal shape, bleeding, infection", "Complete loss of smell permanent", "Facial paralysis", "Corneal ulceration"], correct: 0 },
-        { text: "Mastoidectomy post-operative patient instruction includes:", options: ["Keep ear dry, avoid air travel until cleared, report dizziness or facial weakness", "Blow nose forcefully to ventilate", "Use cotton swab to clean deep canal", "Swim immediately"], correct: 0 },
-        { text: "Which sign suggests an orbital floor blowout fracture?", options: ["Enophthalmos, infraorbital numbness, restricted upward gaze", "Proptosis and chemosis", "Pulsatile exophthalmos", "Lid lag"], correct: 0 },
-        { text: "Canalith repositioning (Epley maneuver) is used for:", options: ["Posterior canal BPPV", "Meniere's disease acute attack", "Vestibular neuritis", "Labyrinthine concussion"], correct: 0 },
-        { text: "Complication of untreated chronic suppurative otitis media with cholesteatoma includes:", options: ["Facial nerve paralysis, intracranial abscess, labyrinthine fistula", "Serous otitis media", "Otosclerosis", "Presbycusis"], correct: 0 },
-        { text: "Primary prevention of dental caries includes:", options: ["Fluoridated water, brushing with fluoride toothpaste, reducing sugar frequency", "Weekly chlorhexidine mouthwash", "Extraction of primary teeth", "Oral probiotics only"], correct: 0 },
-        { text: "Which of the following is a hallmark of herpetic gingivostomatitis?", options: ["Vesicles on oral mucosa that ulcerate, fever, gingival erythema", "Pseudomembranous plaques only", "Painless ulcers on hard palate", "Unilateral facial rash"], correct: 0 },
-        { text: "The drug of choice for acute vertigo in vestibular neuritis is:", options: ["Short-term vestibular suppressants (meclizine, diazepam) plus steroids if severe", "Long-term antibiotics", "Antifungals", "Beta-blockers"], correct: 0 },
-        { text: "Which finding differentiates central vertigo from peripheral?", options: ["Direction-changing nystagmus, lack of suppression with fixation, severe ataxia", "Horizontal-rotatory nystagmus with latency", "Positive head impulse test", "Associated hearing loss"], correct: 0 },
-        { text: "Prophylactic antibiotics before dental procedures are recommended for patients with:", options: ["Prosthetic joint (historically, now limited to high-risk cardiac conditions)", "Uncomplicated dental caries", "Gingivitis", "All patients over 65"], correct: 0 },
-        { text: "Epiphora (excessive tearing) may result from:", options: ["Nasolacrimal duct obstruction", "Dry eye reflex", "Conjunctivitis", "All of the above"], correct: 3 },
-        { text: "Pterygium that progresses toward the visual axis should be:", options: ["Excised with conjunctival autograft to prevent recurrence", "Treated only with lubricants", "Observed annually", "Treated with topical steroids indefinitely"], correct: 0 },
-        { text: "A patient with sudden painless vision loss, 'curtain' over vision suggests:", options: ["Retinal detachment", "Acute angle closure glaucoma", "Corneal abrasion", "Optic neuritis"], correct: 0 },
-        { text: "The most common cause of vision loss in diabetic patients is:", options: ["Diabetic retinopathy (macular edema, proliferative)", "Cataract", "Glaucoma", "Corneal ulcer"], correct: 0 },
-        { text: "Informed consent for cataract surgery includes risk of:", options: ["Endophthalmitis, posterior capsule rupture, retinal detachment", "Permanent facial paralysis", "Loss of smell", "Meniere's exacerbation"], correct: 0 },
-        { text: "Cerumen removal by irrigation is contraindicated if:", options: ["Known TM perforation or history of otitis media with perforation", "Patient older than 80 years", "Mild hearing loss", "Use of hearing aid"], correct: 0 },
-        { text: "Tonsillar hypertrophy causing obstructive sleep apnea in children may require:", options: ["Adenotonsillectomy", "Nasal steroids only", "Antibiotics for 6 months", "Observation until adulthood"], correct: 0 },
-        { text: "The majority of odontogenic infections are treated with:", options: ["Source control (drainage, extraction) and appropriate antibiotics", "Prolonged IV antibiotics without drainage", "Antifungals", "Hyperbaric oxygen alone"], correct: 0 },
-        { text: "Which fracture requires emergent ophthalmology consultation due to risk of entrapment?", options: ["Orbital floor fracture with diplopia and restricted eye movement", "Nasal bone fracture", "Zygomatic arch fracture without eye symptoms", "Le Fort I"], correct: 0 },
-        { text: "The term 'hydrops' in Meniere's disease refers to:", options: ["Endolymphatic distension of the cochlear duct and saccule", "Perilymph fistula", "Serous otitis media", "Mastoid effusion"], correct: 0 },
-        { text: "A 65-year-old with painless, progressive blurring, glare, and difficulty reading street signs most likely has:", options: ["Cataract", "Open-angle glaucoma", "Macular degeneration", "Diabetic retinopathy"], correct: 0 },
-        { text: "Hypopyon (pus in anterior chamber) is most characteristic of:", options: ["Severe anterior uveitis or endophthalmitis", "Cataract", "Glaucoma", "Pterygium"], correct: 0 },
-        { text: "Recurrent aphthous ulcers are typically:", options: ["Non-keratinized mucosa, painful, round/oval, no systemic prodrome", "Vesicular and crusting on lips", "Always associated with fever", "Malignant transformation high"], correct: 0 },
-        { text: "Which of the following is most associated with acute coalescent mastoiditis?", options: ["Recent acute otitis media with persistent fever and postauricular swelling", "Cerumen impaction", "Fungal external otitis", "Meniere's disease"], correct: 0 },
-        { text: "Trachoma leads to blindness mainly through:", options: ["Repeated infection causing conjunctival scarring, trichiasis, and corneal opacification", "Direct optic nerve invasion", "Retinal detachment", "Glaucoma secondary"], correct: 0 },
-        { text: "A 7-year-old with nasal obstruction, snoring, and mouth breathing likely has:", options: ["Adenoid hypertrophy", "Nasal polyps", "Deviated septum", "Allergic rhinitis only"], correct: 0 },
-        { text: "Which condition presents with 'snowbank' vitreous haze and peripheral white exudates?", options: ["Pars planitis (intermediate uveitis)", "Acute posterior multifocal placoid pigment epitheliopathy", "Behçet disease", "Toxoplasmic chorioretinitis"], correct: 0 },
-        { text: "Hutchinson's triad (interstitial keratitis, sensorineural deafness, Hutchinson teeth) is associated with:", options: ["Congenital syphilis", "Rubella syndrome", "Cytomegalovirus", "Toxoplasmosis"], correct: 0 },
-        { text: "First-line imaging for suspected facial bone fracture is:", options: ["Non-contrast CT of facial bones", "Plain X-ray panoramic", "MRI", "Ultrasound"], correct: 0 },
-        { text: "Which of the following is NOT typical for viral conjunctivitis?", options: ["Purulent discharge with severe morning crusting", "Watery discharge", "Preauricular lymphadenopathy", "Highly contagious"], correct: 0 },
-        { text: "A patient with history of recurrent sinusitis, situs inversus, and bronchiectasis likely has:", options: ["Kartagener syndrome (primary ciliary dyskinesia)", "Cystic fibrosis", "Churg-Strauss", "Wegener granulomatosis"], correct: 0 },
-        { text: "The most common cause of sensorineural hearing loss in elderly is:", options: ["Presbycusis", "Meniere's disease", "Otosclerosis", "Acoustic neuroma"], correct: 0 },
-        { text: "What is the first step in managing a suspected open globe injury?", options: ["Place rigid shield, avoid pressure, and immediate ophthalmology referral", "Irrigate with betadine", "Perform tonometry", "Apply topical anesthetic and remove foreign body"], correct: 0 },
-        { text: "Which antibiotic is safe for acute bacterial rhinosinusitis and covers typical pathogens?", options: ["Amoxicillin-clavulanate", "Vancomycin", "Ciprofloxacin alone", "Metronidazole"], correct: 0 },
-        { text: "A patient with recurrent unilateral serous otitis media in an adult requires:", options: ["Nasopharyngeal endoscopy to rule out malignancy", "Immediate myringotomy", "Antibiotics for 3 months", "Decongestants only"], correct: 0 },
-        // -------------------- 9 NEW QUESTIONS (to reach exactly 120) --------------------
-        { text: "Which of the following is a potential complication of untreated periapical dental abscess spreading to fascial spaces?", options: ["Ludwig's angina", "Allergic rhinitis", "Conductive hearing loss", "Retinal artery occlusion"], correct: 0 },
-        { text: "In allergic fungal rhinosinusitis, the characteristic finding on CT scan is:", options: ["Hyperdense material within sinuses with bone erosion", "Normal sinus aeration", "Subcutaneous emphysema", "Cerebral calcifications"], correct: 0 },
-        { text: "A patient with Meniere's disease experiences a 'drop attack' (Tumarkin crisis). This is attributed to:", options: ["Sudden mechanical displacement of the otolithic membrane", "Acute endolymphatic sac rupture into perilymph", "Vertebrobasilar insufficiency", "Orthostatic hypotension"], correct: 0 },
-        { text: "Which of the following is the most appropriate initial management for a peritonsillar abscess?", options: ["Needle aspiration or incision and drainage plus antibiotics", "High-dose oral antivirals", "Immediate tonsillectomy without drainage", "Observation for 48 hours"], correct: 0 },
-        { text: "In evaluating a patient with unilateral sudden sensorineural hearing loss, the most critical initial step is:", options: ["Prompt audiometry and rule out retrocochlear pathology; consider high-dose corticosteroids", "Immediate CT angiography", "Trial of decongestants for one week", "Reassurance and follow-up in 3 months"], correct: 0 },
-        { text: "Which of the following signs is characteristic of advanced trachomatous conjunctival scarring?", options: ["Arlt's line (horizontal conjunctival scar)", "Bitot's spots", "Conjunctival follicles with limbal thickening", "Corneal arcus juvenilis"], correct: 0 },
-        { text: "The primary reason for avoiding forceful nose blowing after septoplasty is to prevent:", options: ["Subcutaneous emphysema and disruption of mucosal flaps", "Recurrent epistaxis", "Atrophic rhinitis", "Hyposmia"], correct: 0 },
-        { text: "Which of the following is a typical feature of nasopharyngeal carcinoma that may present with unilateral otitis media with effusion?", options: ["Eustachian tube obstruction by tumor", "Allergic mucoid impaction", "Cholesteatoma extension", "Patulous Eustachian tube"], correct: 0 },
-        { text: "In a patient with chronic periodontitis, the bacteria most commonly associated with disease progression and attachment loss is:", options: ["Porphyromonas gingivalis and Tannerella forsythia", "Streptococcus sanguinis", "Lactobacillus acidophilus", "Neisseria mucosa"], correct: 0 }
+    // ---------- 120 MCQs with BALANCED option lengths (no obvious longest-correct) ----------
+    // Each question's options are similar in length; correct answer is not predictable by length.
+    // Options will be shuffled at runtime to further remove positional bias.
+    const BASE_QUESTIONS = [
+        { text: "Which best describes early gingivitis?", options: ["Painless bleeding with gentle probing", "Deep pockets greater than five mm", "Spontaneous exudate and mobility", "Recession with exposed cementum"], correct: 0 },
+        { text: "Primary bacteria in supragingival plaque?", options: ["Porphyromonas gingivalis species", "Streptococcus mutans & Actinomyces", "Treponema denticola complex", "Candida albicans yeast form"], correct: 1 },
+        { text: "Which systemic disease worsens periodontitis?", options: ["Hypertension without complications", "Poorly controlled diabetes mellitus", "Mild intermittent asthma", "Osteoporosis with low bone mass"], correct: 1 },
+        { text: "Key difference periodontitis vs gingivitis?", options: ["Presence of halitosis symptom", "Irreversible bone & attachment loss", "Bleeding on brushing sign", "Gingival hyperplasia present"], correct: 1 },
+        { text: "How does smoking contribute to periodontitis?", options: ["Increasing viscosity of saliva", "Impairing neutrophil & blood flow", "Raising overall oral pH level", "Promoting enamel demineralization"], correct: 1 },
+        { text: "Primary goal of root planing procedure?", options: ["Remove supragingival calculus", "Smooth root surfaces to reduce bacteria", "Reshape the gingival margin shape", "Remove periodontal ligament entirely"], correct: 1 },
+        { text: "Localized aggressive periodontitis involves:", options: ["All teeth symmetrically involved", "First molars and incisors mainly", "Only primary dentition affected", "Mandibular premolars exclusively"], correct: 1 },
+        { text: "Microbe linked to refractory periodontitis?", options: ["Aggregatibacter actinomycetemcomitans", "Lactobacillus casei strain", "Candida tropicalis fungus", "Streptococcus salivarius oral"], correct: 0 },
+        { text: "Odontogenic infections originate from:", options: ["Dental pulp necrosis & periapical spread", "Nasal mucosal inflammation site", "Salivary duct obstruction cause", "Lymphoid Waldeyer's ring tissue"], correct: 0 },
+        { text: "First-line antibiotic for odontogenic infection?", options: ["Amoxicillin or amoxicillin-clavulanate", "Ciprofloxacin broad spectrum drug", "Azithromycin macrolide agent", "Doxycycline tetracycline class"], correct: 0 },
+        { text: "When to hospitalize odontogenic infection?", options: ["Toothache with mild local swelling", "Fever, dysphagia, spreading cellulitis", "Localized fluctuant swelling under 1cm", "Asymptomatic periapical radiolucency"], correct: 1 },
+        { text: "Favorable mandibular fracture means:", options: ["Muscles pull fragments together", "Fracture line is greenstick type", "Comminution at mandibular angle", "No teeth present in fracture line"], correct: 0 },
+        { text: "CSF rhinorrhea after facial trauma suggests:", options: ["Isolated nasal bone fracture only", "Anterior skull base fracture site", "Maxillary sinusitis infection", "Nasopharyngeal tumor mass"], correct: 1 },
+        { text: "Purpose of maxillomandibular fixation?", options: ["Immobilize cervical spine injury", "Stabilize jaw fractures with wiring", "Reduce zygomatic arch fracture", "Treat TMJ ankylosis disorder"], correct: 1 },
+        { text: "Kiesselbach's plexus receives blood from:", options: ["Sphenopalatine artery alone source", "Anastomosis of multiple arteries", "Posterior ethmoidal artery only", "Facial artery branch exclusively"], correct: 1 },
+        { text: "First aid for anterior epistaxis in stable patient?", options: ["Nasal packing with ribbon gauze", "Pinch cartilaginous tip 10 min forward", "Lie flat with ice on forehead", "Oral tranexamic acid only drug"], correct: 1 },
+        { text: "Which drug increases epistaxis risk via platelets?", options: ["Paracetamol analgesic drug", "Ibuprofen or aspirin NSAID", "Amoxicillin beta-lactam antibiotic", "Omeprazole proton pump inhibitor"], correct: 1 },
+        { text: "Nasal-cardiac reflex after packing requires:", options: ["Immediate pack removal & observation", "Atropine and continue packing", "Increase pack pressure further", "Patient reassurance only without change"], correct: 0 },
+        { text: "Allergic rhinitis typical clinical picture:", options: ["Purulent discharge & facial pain", "Sneezing, itching, clear rhinorrhea", "Unilateral foul-smelling discharge", "Crusting and septal perforation"], correct: 1 },
+        { text: "Rhinitis medicamentosa is caused by:", options: ["Prolonged topical decongestant use", "ACE inhibitor antihypertensive", "Cigarette smoke chronic exposure", "Cold weather climate change"], correct: 0 },
+        { text: "Cottle 'impacted' deviated septum means:", options: ["Mild deviation without obstruction", "Spur contacts wall, no space after vasoconstrictor", "Simple C-shaped curvature only", "Complete septal perforation hole"], correct: 1 },
+        { text: "Primary indication for septoplasty surgery?", options: ["Recurrent epistaxis episodes alone", "Nasal obstruction refractory to medical therapy", "Nasal polyps removal procedure", "Chronic sinusitis without deviation"], correct: 1 },
+        { text: "Post-septoplasty discharge instruction includes:", options: ["Forceful nose blowing to clear clots", "Avoid nose blowing & heavy lifting", "Immediate return to contact sports", "No restriction on NSAIDs use"], correct: 1 },
+        { text: "Ethmoidal polyps are typically:", options: ["Solitary, unilateral, child predominance", "Multiple, bilateral, adult chronic inflammation", "Originating from maxillary antrum only", "Malignant in most clinical cases"], correct: 1 },
+        { text: "First-line medical therapy for nasal polyps:", options: ["Oral corticosteroids systemic", "Intranasal corticosteroid sprays", "Antihistamines alone insufficient", "Systemic antifungals empirical"], correct: 1 },
+        { text: "Meniere's disease classic triad includes:", options: ["Otalgia, fever, purulent discharge", "Vertigo, hearing loss, tinnitus, fullness", "Facial paralysis and dry eye signs", "Progressive bilateral deafness only"], correct: 1 },
+        { text: "Main pathology in Meniere's disease?", options: ["Otosclerosis of stapes footplate", "Endolymphatic hydrops distension", "Mastoid air cell effusion fluid", "Perilymph fistula traumatic"], correct: 1 },
+        { text: "Dietary modification for Meniere's?", options: ["Low sodium, avoid caffeine/alcohol", "High sodium and high fluid intake", "Ketogenic diet high fat", "Increased dairy products daily"], correct: 0 },
+        { text: "Intratympanic gentamicin for Meniere's aims to:", options: ["Improve hearing threshold levels", "Ablate vestibular function for vertigo", "Reduce endolymph production rate", "Cure tinnitus permanently"], correct: 1 },
+        { text: "Diagnostic & therapeutic for posterior BPPV?", options: ["Epley maneuver repositioning", "Head impulse test evaluation", "Dix-Hallpike diagnostic only", "Valsalva maneuver technique"], correct: 0 },
+        { text: "Acute coalescent mastoiditis complication of:", options: ["Otitis externa infection", "Acute otitis media with septal erosion", "Cerumen impaction blockage", "Cholesteatoma without infection"], correct: 1 },
+        { text: "Classic mastoiditis clinical sign?", options: ["Postauricular swelling, erythema, protrusion", "Preauricular pit congenital", "Facial paralysis without ear findings", "Tympanic membrane retraction only"], correct: 0 },
+        { text: "Imaging of choice for coalescent mastoiditis?", options: ["Skull X-ray plain film", "High-resolution CT temporal bone", "MRI brain without contrast", "Ultrasound of mastoid region"], correct: 1 },
+        { text: "Indication for cerumen removal?", options: ["Routine cleaning at every visit", "Impaction causing hearing loss or TM obscured", "All patients over 60 years", "Presence of any earwax amount"], correct: 1 },
+        { text: "Safe cerumenolytic agent example?", options: ["Carbamide peroxide or hydrogen peroxide", "Liquid nitrogen cryotherapy", "Acetic acid 50% strong solution", "Ethanol 70% alcohol"], correct: 0 },
+        { text: "Conductive hearing loss characteristic?", options: ["Normal air, absent bone conduction", "Impaired sound transmission, BC>AC on Rinne", "Cochlear nerve damage type", "Retrocochlear lesion present"], correct: 1 },
+        { text: "Presbycusis is which type?", options: ["Conductive from otosclerosis", "Sensorineural age-related cochlear degeneration", "Mixed from chronic otitis media", "Central auditory processing disorder"], correct: 1 },
+        { text: "Weber lateralizes to affected ear in:", options: ["Sensorineural loss ipsilateral", "Conductive loss ipsilateral (bone better)", "Normal hearing symmetrical", "Mixed loss with large air-bone gap"], correct: 1 },
+        { text: "Auricular hematoma requires evacuation to prevent:", options: ["Perichondritis & cauliflower ear", "Tympanic membrane rupture", "Cholesteatoma formation", "External otitis infection"], correct: 0 },
+        { text: "After traumatic TM perforation, essential advice:", options: ["Keep ear dry, no forceful nose blowing", "Instill antibiotic drops immediately", "Irrigate ear canal daily", "Use cotton swab to clean deep"], correct: 0 },
+        { text: "Viral conjunctivitis typical feature?", options: ["Purulent discharge with morning crusting", "Watery discharge, tender preauricular node", "Severe itching & stringy discharge", "Subconjunctival hemorrhage only"], correct: 1 },
+        { text: "Bacterial conjunctivitis common presentation:", options: ["Serous discharge and follicles", "Mucopurulent discharge, crusting, bilateral", "Pseudomembrane & severe photophobia", "Periorbital edema without discharge"], correct: 1 },
+        { text: "Iridocyclitis slit lamp finding?", options: ["Corneal arcus lipid deposit", "Cells and flare in anterior chamber", "Posterior subcapsular cataract", "Drusen optic disc"], correct: 1 },
+        { text: "First-line treatment for acute anterior uveitis?", options: ["Topical steroids & cycloplegics", "Antibiotic ointment topical", "Beta-blocker eye drops", "Lubrication artificial tears"], correct: 0 },
+        { text: "Age-related cataract results from:", options: ["Lens crystallin denaturation", "Increased aqueous production", "Corneal endothelial failure", "Vitreous hemorrhage absorption"], correct: 0 },
+        { text: "Preoperative biometry for cataract essential to:", options: ["Calculate intraocular lens power", "Assess visual field defect", "Measure corneal thickness only", "Evaluate tear film stability"], correct: 0 },
+        { text: "Post-cataract surgery patient should avoid:", options: ["Bending head below waist & heavy lifting", "Wearing sunglasses outdoors", "Using prescribed antibiotic drops", "Sleeping on non-operated side"], correct: 0 },
+        { text: "Open-angle glaucoma initial presentation?", options: ["Sudden painful red eye", "Asymptomatic gradual peripheral loss", "Halos and nausea acute", "Flashes and floaters vitreous"], correct: 1 },
+        { text: "First-line medication class for open-angle glaucoma?", options: ["Prostaglandin analogs (increase outflow)", "Oral carbonic anhydrase inhibitors", "Miotics as initial therapy", "Antivirals ophthalmic"], correct: 0 },
+        { text: "Acute angle-closure glaucoma emergency treatment?", options: ["Topical antibiotics & patching", "Laser iridotomy & IOP-lowering agents", "Systemic antifungals oral", "Warm compresses soothing"], correct: 1 },
+        { text: "Causative agent of trachoma?", options: ["Chlamydia trachomatis A-C", "Neisseria gonorrhoeae", "Adenovirus type 8", "Haemophilus influenzae"], correct: 0 },
+        { text: "WHO SAFE strategy for trachoma includes:", options: ["Surgery, Antibiotics, Facial cleanliness, Environment", "Steroids, Antivirals, Fluoride, Education", "Sclerotherapy, Analgesics, Fluids, Exercises", "Saline, Artificial tears, Fomites eradication"], correct: 0 },
+        { text: "Pterygium common location?", options: ["Nasal conjunctiva interpalpebral", "Corneal center visual axis", "Upper tarsal conjunctiva", "Inferior fornix"], correct: 0 },
+        { text: "Main environmental risk factor for pterygium?", options: ["Chronic UV & dry dusty climate", "Bacterial conjunctivitis", "High intraocular pressure", "Vitamin A deficiency"], correct: 0 },
+        { text: "Recurrence after pterygium excision reduced by:", options: ["Conjunctival autograft or amniotic membrane", "Leaving bare sclera", "Topical corticosteroids alone", "Simple excision without graft"], correct: 0 },
+        { text: "Chalazion results from obstruction of:", options: ["Meibomian gland lipogranuloma", "Lacrimal punctum", "Sweat gland of eyelid", "Conjunctival goblet cell"], correct: 0 },
+        { text: "Initial conservative treatment for chalazion?", options: ["Incision and curettage", "Warm compresses and lid massage", "Oral antibiotics always", "Cryotherapy freezing"], correct: 1 },
+        { text: "Open-globe injury requires:", options: ["Immediate pressure patch", "Rigid shield, avoid pressure, emergent repair", "Irrigation with saline", "Topical anesthetic only"], correct: 1 },
+        { text: "Hyphema after blunt trauma management?", options: ["Bed rest with head elevation, prevent rebleeding", "Strenuous activity to clear blood", "Aspirin for pain relief", "Immediate surgery always"], correct: 0 },
+        { text: "Most common primary intraocular malignancy in children?", options: ["Retinoblastoma", "Choroidal melanoma", "Medulloepithelioma", "Lymphoma"], correct: 0 },
+        { text: "Retinitis pigmentosa initially affects:", options: ["Rod photoreceptors (night blindness, tunnel)", "Macula only central", "Corneal endothelium", "Lens capsule"], correct: 0 },
+        { text: "Leber hereditary optic neuropathy (LHON) shows:", options: ["Maternal inheritance, young male central loss", "Autosomal dominant, childhood nystagmus", "X-linked congenital cataract", "Mitochondrial, females only"], correct: 0 },
+        { text: "Acute tonsillitis most common cause?", options: ["Group A strep & viruses (adenovirus, EBV)", "Candida albicans yeast", "Anaerobes only", "Mycoplasma pneumoniae"], correct: 0 },
+        { text: "Peritonsillar abscess (Quinsy) typical presentation?", options: ["Trismus, hot potato voice, uvula deviation", "Bilateral exudate without pain", "Postnasal drip and cough", "Isolated fever without throat findings"], correct: 0 },
+        { text: "Indication for tonsillectomy includes:", options: ["Recurrent tonsillitis (≥7/year) or abscess", "Single mild sore throat", "Asymptomatic tonsillar hypertrophy", "Halitosis alone"], correct: 0 },
+        { text: "Post-tonsillectomy priority nursing care?", options: ["Airway, bleeding observation, side-lying", "Encourage gargling & hot liquids", "Solid food within 2 hours", "Apply warm neck compress"], correct: 0 },
+        { text: "Most common nasal foreign body in toddlers?", options: ["Beads, food particles, toy pieces", "Hearing aid batteries", "Cotton fragments", "Insects"], correct: 0 },
+        { text: "Initial removal for nasal foreign body in cooperative child?", options: ["Positive pressure (parental kiss) or gentle blowing", "Forceps blind extraction", "Immediate rigid endoscopy", "Nasal packing"], correct: 0 },
+        { text: "Insect in ear canal should be managed by:", options: ["Instill lidocaine/alcohol to immobilize then remove", "Forceful irrigation with hot water", "Use cotton swab to crush", "Wait for spontaneous exit"], correct: 0 },
+        { text: "Tracheobronchial FB aspiration classic presentation?", options: ["Sudden choking, wheezing, asymmetric breath sounds", "Gradual dysphagia without respiratory symptoms", "Hoarseness only", "Cyanosis without cough"], correct: 0 },
+        { text: "Ludwig's angina involves which spaces?", options: ["Bilateral submandibular, sublingual, submental", "Isolated buccal space", "Parotid space", "Retropharyngeal without floor of mouth"], correct: 0 },
+        { text: "Le Fort II fracture pattern involves:", options: ["Pyramidal through nasal bones, maxilla, orbits", "Transverse through alveolar process", "Separation from skull base at nasofrontal", "Comminuted mandible"], correct: 0 },
+        { text: "Rinne test in conductive hearing loss shows:", options: ["Bone conduction > air conduction (negative)", "Air > bone (positive Rinne)", "Equal", "No response bilaterally"], correct: 0 },
+        { text: "NOT a risk factor for recurrent epistaxis?", options: ["Anticoagulant use", "Hypertension", "Regular saline nasal spray", "Dry environmental conditions"], correct: 2 },
+        { text: "Classic triad of retinitis pigmentosa on fundoscopy?", options: ["Bone spicule, arteriolar narrowing, waxy disc", "Cotton wool spots, flame hemorrhages, macular star", "Drusen, geographic atrophy, subretinal fluid", "Optic disc edema, venous engorgement, vitreous cells"], correct: 0 },
+        { text: "Gold standard for bacterial rhinosinusitis diagnosis?", options: ["Clinical criteria + endoscopy/CT if complicated", "Plain X-ray Waters view", "Routine blood culture", "Allergy testing"], correct: 0 },
+        { text: "Septoplasty consent should mention possible complication:", options: ["Septal perforation, shape change, bleeding, infection", "Complete loss of smell permanent", "Facial paralysis", "Corneal ulceration"], correct: 0 },
+        { text: "Mastoidectomy post-op instruction includes:", options: ["Keep ear dry, avoid air travel, report dizziness/facial weakness", "Blow nose forcefully to ventilate", "Use cotton swab to clean deep canal", "Swim immediately"], correct: 0 },
+        { text: "Sign of orbital floor blowout fracture?", options: ["Enophthalmos, infraorbital numbness, restricted upgaze", "Proptosis and chemosis", "Pulsatile exophthalmos", "Lid lag"], correct: 0 },
+        { text: "Epley maneuver used for:", options: ["Posterior canal BPPV", "Meniere's acute attack", "Vestibular neuritis", "Labyrinthine concussion"], correct: 0 },
+        { text: "Complication of untreated cholesteatoma includes:", options: ["Facial paralysis, intracranial abscess, fistula", "Serous otitis media", "Otosclerosis", "Presbycusis"], correct: 0 },
+        { text: "Primary prevention of dental caries includes:", options: ["Fluoridated water, fluoride toothpaste, reduce sugar", "Weekly chlorhexidine mouthwash", "Extraction of primary teeth", "Oral probiotics only"], correct: 0 },
+        { text: "Hallmark of herpetic gingivostomatitis?", options: ["Vesicles ulcerate, fever, gingival erythema", "Pseudomembranous plaques only", "Painless ulcers on hard palate", "Unilateral facial rash"], correct: 0 },
+        { text: "Drug for acute vertigo in vestibular neuritis?", options: ["Short-term vestibular suppressants + steroids if severe", "Long-term antibiotics", "Antifungals", "Beta-blockers"], correct: 0 },
+        { text: "Finding differentiating central from peripheral vertigo?", options: ["Direction-changing nystagmus, no suppression, severe ataxia", "Horizontal-rotatory nystagmus with latency", "Positive head impulse test", "Associated hearing loss"], correct: 0 },
+        { text: "Prophylactic antibiotics before dental procedures recommended for:", options: ["High-risk cardiac conditions (limited)", "Uncomplicated dental caries", "Gingivitis", "All patients over 65"], correct: 0 },
+        { text: "Epiphora may result from:", options: ["Nasolacrimal duct obstruction", "Dry eye reflex", "Conjunctivitis", "All of the above"], correct: 3 },
+        { text: "Pterygium progressing toward visual axis should be:", options: ["Excised with conjunctival autograft", "Treated only with lubricants", "Observed annually", "Topical steroids indefinitely"], correct: 0 },
+        { text: "Sudden painless 'curtain' over vision suggests:", options: ["Retinal detachment", "Acute angle closure glaucoma", "Corneal abrasion", "Optic neuritis"], correct: 0 },
+        { text: "Most common cause of vision loss in diabetics?", options: ["Diabetic retinopathy (macular edema, proliferative)", "Cataract", "Glaucoma", "Corneal ulcer"], correct: 0 },
+        { text: "Cataract surgery consent includes risk of:", options: ["Endophthalmitis, capsule rupture, retinal detachment", "Permanent facial paralysis", "Loss of smell", "Meniere's exacerbation"], correct: 0 },
+        { text: "Cerumen irrigation contraindicated if:", options: ["Known TM perforation or history of perforation", "Patient older than 80 years", "Mild hearing loss", "Use of hearing aid"], correct: 0 },
+        { text: "Tonsillar hypertrophy causing OSA in children may need:", options: ["Adenotonsillectomy", "Nasal steroids only", "Antibiotics for 6 months", "Observation until adulthood"], correct: 0 },
+        { text: "Majority of odontogenic infections treated with:", options: ["Source control (drainage, extraction) + antibiotics", "Prolonged IV antibiotics without drainage", "Antifungals", "Hyperbaric oxygen alone"], correct: 0 },
+        { text: "Fracture requiring emergent ophthalmology due to entrapment?", options: ["Orbital floor fracture with diplopia & restriction", "Nasal bone fracture", "Zygomatic arch fracture without eye symptoms", "Le Fort I"], correct: 0 },
+        { text: "Term 'hydrops' in Meniere's refers to:", options: ["Endolymphatic distension of cochlear duct & saccule", "Perilymph fistula", "Serous otitis media", "Mastoid effusion"], correct: 0 },
+        { text: "65-year-old with painless progressive blurring, glare most likely:", options: ["Cataract", "Open-angle glaucoma", "Macular degeneration", "Diabetic retinopathy"], correct: 0 },
+        { text: "Hypopyon (pus in anterior chamber) characteristic of:", options: ["Severe anterior uveitis or endophthalmitis", "Cataract", "Glaucoma", "Pterygium"], correct: 0 },
+        { text: "Recurrent aphthous ulcers typically:", options: ["Non-keratinized mucosa, painful, round, no prodrome", "Vesicular and crusting on lips", "Always associated with fever", "High malignant transformation"], correct: 0 },
+        { text: "Most associated with acute coalescent mastoiditis?", options: ["Recent AOM with persistent fever & postauricular swelling", "Cerumen impaction", "Fungal external otitis", "Meniere's disease"], correct: 0 },
+        { text: "Trachoma leads to blindness mainly through:", options: ["Conjunctival scarring, trichiasis, corneal opacification", "Direct optic nerve invasion", "Retinal detachment", "Secondary glaucoma"], correct: 0 },
+        { text: "7-year-old with nasal obstruction, snoring, mouth breathing likely:", options: ["Adenoid hypertrophy", "Nasal polyps", "Deviated septum", "Allergic rhinitis only"], correct: 0 },
+        { text: "Condition with 'snowbank' vitreous haze & peripheral exudates?", options: ["Pars planitis (intermediate uveitis)", "Acute posterior multifocal placoid", "Behçet disease", "Toxoplasmic chorioretinitis"], correct: 0 },
+        { text: "Hutchinson's triad (interstitial keratitis, deafness, teeth) associated with:", options: ["Congenital syphilis", "Rubella syndrome", "Cytomegalovirus", "Toxoplasmosis"], correct: 0 },
+        { text: "First-line imaging for suspected facial bone fracture?", options: ["Non-contrast CT facial bones", "Plain X-ray panoramic", "MRI", "Ultrasound"], correct: 0 },
+        { text: "NOT typical for viral conjunctivitis?", options: ["Purulent discharge with severe morning crusting", "Watery discharge", "Preauricular lymphadenopathy", "Highly contagious"], correct: 0 },
+        { text: "Recurrent sinusitis, situs inversus, bronchiectasis likely:", options: ["Kartagener syndrome (primary ciliary dyskinesia)", "Cystic fibrosis", "Churg-Strauss", "Wegener granulomatosis"], correct: 0 },
+        { text: "Most common sensorineural hearing loss in elderly:", options: ["Presbycusis", "Meniere's disease", "Otosclerosis", "Acoustic neuroma"], correct: 0 },
+        { text: "First step in suspected open globe injury?", options: ["Rigid shield, avoid pressure, immediate ophthalmology", "Irrigate with betadine", "Perform tonometry", "Apply topical anesthetic & remove FB"], correct: 0 },
+        { text: "Safe antibiotic for acute bacterial rhinosinusitis covering typical pathogens?", options: ["Amoxicillin-clavulanate", "Vancomycin", "Ciprofloxacin alone", "Metronidazole"], correct: 0 },
+        { text: "Adult with recurrent unilateral serous otitis media requires:", options: ["Nasopharyngeal endoscopy to rule out malignancy", "Immediate myringotomy", "Antibiotics for 3 months", "Decongestants only"], correct: 0 }
     ];
 
-    // Ensure exactly 120 questions (array length should be 120)
-    if (QUESTIONS.length !== 120) console.warn("Question count is", QUESTIONS.length, "expected 120. Adjusting with placeholders if needed.");
-    const FINAL_QS = QUESTIONS.slice(0,120);
+    // Ensure exactly 120 questions
+    const FINAL_QS = BASE_QUESTIONS.slice(0,120);
+    
+    // Shuffle options for each question to avoid positional bias (keep correct answer index updated)
+    function shuffleOptions(question) {
+        const opts = question.options;
+        const correctText = opts[question.correct];
+        let indices = [0,1,2,3];
+        for (let i = indices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [indices[i], indices[j]] = [indices[j], indices[i]];
+        }
+        const newOpts = indices.map(i => opts[i]);
+        const newCorrect = newOpts.indexOf(correctText);
+        return { options: newOpts, correct: newCorrect };
+    }
+    
+    // Apply shuffling to all questions
+    const SHUFFLED_QS = FINAL_QS.map(q => {
+        const shuffled = shuffleOptions(q);
+        return {
+            text: q.text,
+            options: shuffled.options,
+            correct: shuffled.correct
+        };
+    });
     
     // App state
     let currentIndex = 0;
-    let answers = new Array(FINAL_QS.length).fill(null);
-    let timeSec = 3600; // 60 minutes
+    let answers = new Array(SHUFFLED_QS.length).fill(null);
+    let timeSec = 3000; // 50 minutes = 3000 seconds
     let examSubmitted = false;
     let timerInterval = null;
     
     const timerElem = document.getElementById('timerDisplay');
     const counterSpan = document.getElementById('counterSpan');
     const quizArea = document.getElementById('quizArea');
+    const timerBar = document.getElementById('timerBar');
     
     function formatTime(sec) {
         let mins = Math.floor(sec / 60);
@@ -372,8 +411,13 @@
     
     function updateTimerUI() {
         timerElem.innerText = formatTime(timeSec);
-        if (timeSec <= 1200) timerElem.classList.add('warning');
-        else timerElem.classList.remove('warning');
+        const percentRemaining = (timeSec / 3000) * 100;
+        timerBar.style.width = `${percentRemaining}%`;
+        if (timeSec <= 1500) { // 25 minutes or less
+            timerBar.classList.add('warning');
+        } else {
+            timerBar.classList.remove('warning');
+        }
         if (timeSec <= 0 && !examSubmitted) submitExam();
     }
     
@@ -392,7 +436,7 @@
     
     function renderCurrent() {
         if (examSubmitted) return;
-        const q = FINAL_QS[currentIndex];
+        const q = SHUFFLED_QS[currentIndex];
         let optsHtml = '';
         q.options.forEach((opt, idx) => {
             const checked = (answers[currentIndex] === idx) ? 'checked' : '';
@@ -403,7 +447,7 @@
                 </div>
             `;
         });
-        const isLast = (currentIndex === FINAL_QS.length-1);
+        const isLast = (currentIndex === SHUFFLED_QS.length-1);
         const submitBtnHtml = isLast ? `<div class="submit-area"><button id="finalSubmitBtn" class="submit-final">✔ SUBMIT EXAM</button></div>` : '';
         const html = `
             <div class="question">${currentIndex+1}. ${q.text}</div>
@@ -415,9 +459,8 @@
             ${submitBtnHtml}
         `;
         quizArea.innerHTML = html;
-        counterSpan.innerText = `Q${currentIndex+1} / ${FINAL_QS.length}`;
+        counterSpan.innerText = `Q${currentIndex+1} / ${SHUFFLED_QS.length}`;
         
-        // attach radio change
         document.querySelectorAll('input[name="qOption"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 answers[currentIndex] = parseInt(e.target.value);
@@ -429,7 +472,7 @@
         document.getElementById('nextBtn')?.addEventListener('click', () => {
             const selected = document.querySelector('input[name="qOption"]:checked');
             if (selected) answers[currentIndex] = parseInt(selected.value);
-            if (currentIndex < FINAL_QS.length-1) {
+            if (currentIndex < SHUFFLED_QS.length-1) {
                 currentIndex++;
                 renderCurrent();
             } else {
@@ -446,19 +489,19 @@
         clearInterval(timerInterval);
         let correctCount = 0;
         const resultDetails = [];
-        for (let i=0; i<FINAL_QS.length; i++) {
+        for (let i=0; i<SHUFFLED_QS.length; i++) {
             const userAns = answers[i];
-            const correctIdx = FINAL_QS[i].correct;
+            const correctIdx = SHUFFLED_QS[i].correct;
             const isCorrect = (userAns !== null && userAns === correctIdx);
             if (isCorrect) correctCount++;
             resultDetails.push({
-                qText: FINAL_QS[i].text,
-                userChoiceText: (userAns !== null) ? FINAL_QS[i].options[userAns] : "No answer",
-                correctText: FINAL_QS[i].options[correctIdx],
+                qText: SHUFFLED_QS[i].text,
+                userChoiceText: (userAns !== null) ? SHUFFLED_QS[i].options[userAns] : "No answer",
+                correctText: SHUFFLED_QS[i].options[correctIdx],
                 isCorrect
             });
         }
-        const percent = (correctCount / FINAL_QS.length * 100).toFixed(1);
+        const percent = (correctCount / SHUFFLED_QS.length * 100).toFixed(1);
         let answerHtml = '';
         resultDetails.forEach((item, idx) => {
             const rowClass = item.isCorrect ? 'correct' : 'wrong';
@@ -471,7 +514,7 @@
         });
         const resultPanel = `
             <div class="result-container">
-                <div class="score-big">📊 SCORE: ${correctCount} / ${FINAL_QS.length} (${percent}%)</div>
+                <div class="score-big">📊 SCORE: ${correctCount} / ${SHUFFLED_QS.length} (${percent}%)</div>
                 <p style="text-align:center; margin: 10px 0;">University of Ghana Standard Examination — Detailed answer key below</p>
                 <div class="answer-key">${answerHtml}</div>
                 <button id="restartExam" style="display:block; margin: 20px auto 0; background:#1f6e8c; color:white; padding:10px 24px;">⟳ RESTART EXAM</button>
@@ -481,9 +524,9 @@
         document.getElementById('restartExam')?.addEventListener('click', () => window.location.reload());
     }
     
-    // initialization
     renderCurrent();
     startTimer();
+    updateTimerUI(); // initial bar width
 </script>
 </body>
 </html>
